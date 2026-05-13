@@ -1,0 +1,9 @@
+.DS_Store
+Thumbs.db
+*.swp
+*.bak
+.idea/
+.vscode/
+__pycache__/
+.sim/
+node_modules/

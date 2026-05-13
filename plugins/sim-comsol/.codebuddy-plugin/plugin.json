@@ -1,0 +1,17 @@
+{
+  "name": "sim-comsol",
+  "version": "0.1.0",
+  "description": "COMSOL Multiphysics agent skill — 通过 sim CLI 驱动 COMSOL 建模 / 求解 / 检查。",
+  "author": {
+    "name": "SVD AI Lab",
+    "email": ""
+  },
+  "homepage": {
+    "url": "https://github.com/svd-ai-lab/sim-buddy",
+    "type": "github"
+  },
+  "license": "Apache-2.0",
+  "skills": [
+    "./SKILL.md"
+  ]
+}
