@@ -13,50 +13,57 @@
 # Safe to re-run: detects existing junctions / directories and refreshes them
 # without touching the upstream source.
 
-$ErrorActionPreference = "Stop"
+# Note: do NOT use $ErrorActionPreference = "Stop" globally.
+# PowerShell 5.1 treats every stderr line from native commands (uv, sim, git)
+# as a terminating error under Stop, which kills the script mid-flight.
+# Instead, check $LASTEXITCODE after each native call.
+$ErrorActionPreference = "Continue"
 
 function Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
 function Info($msg) { Write-Host "    $msg" -ForegroundColor Gray }
 function Ok($msg) { Write-Host "    OK: $msg" -ForegroundColor Green }
 function Warn($msg) { Write-Host "    WARN: $msg" -ForegroundColor Yellow }
+function Die($msg) { Write-Host "    FAIL: $msg" -ForegroundColor Red; exit 1 }
+function NativeOrDie($what) { if ($LASTEXITCODE -ne 0) { Die "$what (exit $LASTEXITCODE)" } }
 
 # ----- 1. uv ------------------------------------------------------------
 Step "1/4  uv (Astral)"
 if (Get-Command uv -ErrorAction SilentlyContinue) {
-    Ok "already on PATH ($(uv --version))"
+    Ok ("already on PATH (" + (& uv --version 2>&1 | Out-String).Trim() + ")")
 } else {
     Info "installing uv..."
     irm https://astral.sh/uv/install.ps1 | iex
     $env:PATH = "$env:USERPROFILE\.local\bin;$env:PATH"
     if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
-        throw "uv install ran but uv not found on PATH. Open a new PowerShell and re-run this script."
+        Die "uv installer ran but uv not found on PATH. Open a NEW PowerShell window and re-run this script."
     }
-    Ok "uv $(uv --version) installed"
+    Ok ("uv installed: " + (& uv --version 2>&1 | Out-String).Trim())
 }
 
 # ----- 2. sim CLI + COMSOL driver --------------------------------------
 Step "2/4  sim CLI + COMSOL driver"
 if (Get-Command sim -ErrorAction SilentlyContinue) {
-    Ok "sim already on PATH ($(sim --version 2>&1 | Select-Object -First 1))"
+    Ok ("sim already on PATH (" + (& sim --version 2>&1 | Out-String).Trim() + ")")
 } else {
     Info "uv tool install sim-cli-core ..."
-    uv tool install sim-cli-core
+    & uv tool install sim-cli-core *>&1 | Out-String | Write-Host
+    NativeOrDie "uv tool install sim-cli-core"
     $env:PATH = "$env:USERPROFILE\.local\bin;$env:PATH"
     Ok "sim CLI installed"
 }
 
-Info "uv tool install sim-plugin-comsol ..."
-uv tool install sim-plugin-comsol --force 2>$null
-# sim plugin install delegates to pip; either path works:
-& sim plugin install sim-plugin-comsol 2>$null | Out-Null
-Ok "sim COMSOL driver installed"
+Info "sim plugin install sim-plugin-comsol ..."
+& sim plugin install sim-plugin-comsol *>&1 | Out-String | Write-Host
+# Don't die on plugin install failure -- driver may already be installed,
+# user can re-install manually if needed.
+if ($LASTEXITCODE -ne 0) { Warn "sim plugin install returned $LASTEXITCODE (often benign if already installed)" }
 
 Info "checking COMSOL detection ..."
-$check = & sim check comsol 2>&1
+& sim check comsol *>&1 | Out-Null
 if ($LASTEXITCODE -eq 0) {
-    Ok "sim check comsol passed"
+    Ok "sim check comsol passed (COMSOL install detected)"
 } else {
-    Warn "sim check comsol returned $LASTEXITCODE -- driver is installed, but COMSOL Multiphysics itself may be missing on this host. Offline .mph inspection still works."
+    Warn "sim check comsol returned $LASTEXITCODE -- driver is installed, but COMSOL Multiphysics itself may be missing. Offline .mph inspection still works."
 }
 
 # ----- 3. clone sim-buddy into WorkBuddy marketplaces ------------------
@@ -89,11 +96,12 @@ if (Test-Path $dst) {
 }
 
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-    throw "git is required but not on PATH. Install Git for Windows: https://git-scm.com/download/win"
+    Die "git is required but not on PATH. Install Git for Windows: https://git-scm.com/download/win"
 }
 
 Info "git clone https://github.com/svd-ai-lab/sim-buddy.git --> $dst"
-git clone --depth 1 https://github.com/svd-ai-lab/sim-buddy.git $dst | Out-Null
+& git clone --depth 1 https://github.com/svd-ai-lab/sim-buddy.git $dst *>&1 | Out-String | Write-Host
+NativeOrDie "git clone"
 Ok "cloned"
 
 # ----- 4. register in known_marketplaces.json --------------------------
