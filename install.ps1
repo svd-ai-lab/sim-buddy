@@ -149,3 +149,8 @@ Write-Host "     WorkBuddy will load the sim-comsol skill and shell out to sim C
 Write-Host ""
 Write-Host "Re-run this script any time to refresh sim-buddy from GitHub."
 Write-Host ""
+
+# Force exit 0 even if upstream native commands (uv, sim, git) wrote benign
+# progress to stderr -- PS 5.1 would otherwise propagate a non-zero exit code
+# to "irm | iex" callers and confuse them.
+exit 0
