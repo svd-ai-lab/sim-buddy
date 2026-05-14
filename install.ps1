@@ -70,18 +70,20 @@ if (Get-Command uv -ErrorAction SilentlyContinue) {
 }
 
 # ----- 2. sim CLI + plugins --------------------------------------------
-# 探测之前装过哪些 sim-plugin-* (持久化 state = uv tool env)
+# 探测 sim-cli-core 的 uv tool env 里装了哪些 sim-plugin-* (持久化 state = uv tool env)。
+# 注意: `uv tool list` 不显示 --with 装的 extras,必须 Python 探测真正能 import 的包。
 function Get-InstalledSimPlugins {
+    param([string[]] $Candidates)
+    if (-not (Get-Command uv -ErrorAction SilentlyContinue)) { return @() }
+    # 首次安装时 sim-cli-core 还没装,跳过探测 (避免触发 uv ephemeral install ~30s)
     $list = (& uv tool list 2>&1 | Out-String)
-    $plugins = @()
-    foreach ($line in ($list -split "`n")) {
-        if ($line -match '^- (sim-plugin-([a-z]+))\b') {
-            $plugins += $matches[2]
-        }
-    }
-    return $plugins
+    if ($list -notlike "*sim-cli-core*") { return @() }
+    $probe = "import importlib.util,sys`nfor n in sys.argv[1].split(','):`n  if importlib.util.find_spec('sim_plugin_'+n): print(n)"
+    $out = (& uv tool run --from sim-cli-core python -c $probe ($Candidates -join ",") 2>$null | Out-String).Trim()
+    if (-not $out) { return @() }
+    return ($out -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 }
-$existing = Get-InstalledSimPlugins
+$existing = Get-InstalledSimPlugins -Candidates ($TIER1 + $TIER2_KNOWN)
 $tier2_target = (@() + $existing + $requested) | Sort-Object -Unique | Where-Object { $_ -in $TIER2_KNOWN }
 $all_target = $TIER1 + $tier2_target | Sort-Object -Unique
 
