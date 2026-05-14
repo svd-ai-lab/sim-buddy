@@ -1,6 +1,6 @@
 {
   "name": "sim-buddy",
-  "description": "sim-buddy - WorkBuddy / CodeBuddy marketplace for driving local CAE, CFD, and FEA tools through the sim CLI. This package currently includes COMSOL Multiphysics support.",
+  "description": "sim-buddy — WorkBuddy / CodeBuddy 的本地仿真 marketplace，通过 sim CLI 驱动本机 CAE / CFD / FEA 工具。当前包含 COMSOL Multiphysics 支持。",
   "owner": {
     "name": "SVD AI Lab",
     "email": ""
@@ -11,7 +11,7 @@
   "plugins": [
     {
       "name": "sim-comsol",
-      "description": "COMSOL Multiphysics agent skill for building, solving, inspecting, and reviewing COMSOL models through the sim CLI.",
+      "description": "COMSOL Multiphysics agent skill — 通过 sim CLI 构建、求解、检查和审阅 COMSOL 模型。",
       "source": "./plugins/sim-comsol",
       "version": "0.1.1",
       "category": "engineering",

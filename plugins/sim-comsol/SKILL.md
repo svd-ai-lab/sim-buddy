@@ -1,177 +1,156 @@
 ---
 name: sim-comsol
-description: Use when the user asks for COMSOL Multiphysics work - building, debugging, solving, or inspecting `.mph` models through the `sim` CLI's COMSOL driver. Covers JPype Java API sessions, shared-desktop GUI collaboration, offline `.mph` introspection, and a fragile Desktop attach fallback. Always prefer `sim connect --solver comsol` over raw COMSOL APIs.
+description: 当用户需要处理 COMSOL Multiphysics 任务时使用：通过 sim CLI 构建、调试、求解或检查 `.mph` 模型。覆盖 JPype Java API session、shared-desktop GUI 协作、离线 `.mph` 检查，以及非常有限的 Desktop attach 回退。优先使用 `sim connect --solver comsol`，不要直接调用原始 COMSOL API。
 ---
 
 # COMSOL via sim CLI (WorkBuddy plugin)
 
-This skill teaches an LLM agent how to drive **COMSOL Multiphysics** from
-inside a WorkBuddy or CodeBuddy session by shelling out to the `sim` CLI.
+这个 skill 教 WorkBuddy / CodeBuddy 里的 Agent 如何通过本机 `sim` CLI 驱动
+**COMSOL Multiphysics**。
 
-## Prerequisite check (before the first COMSOL command)
+## 第一次操作前的检查
 
-If you are not sure whether the user has sim + the COMSOL driver installed,
-run these once at the start of a COMSOL conversation:
+如果不确定用户是否已经装好 sim + COMSOL driver，先运行：
 
 ```powershell
-sim --version              # confirms sim CLI is on PATH
-sim check comsol           # confirms COMSOL driver is registered AND a local COMSOL install is detected
+sim --version              # 确认 sim CLI 在 PATH 上
+sim plugin list            # 查看当前环境注册的 plugin
+sim plugin info comsol     # 查看 COMSOL plugin 元信息
+sim plugin doctor comsol   # 检查 plugin entry point / skills / metadata
+sim check comsol           # 检查 COMSOL driver 和本机 COMSOL 安装
 ```
 
-If `sim --version` fails: tell the user to run the sim-buddy installer again,
-or run:
+如果 `sim --version` 失败，让用户重新运行 sim-buddy 安装脚本，或直接运行：
 
 ```powershell
 uv tool install sim-cli-core --with sim-plugin-comsol --upgrade --force
 ```
 
-If `sim check comsol` reports that the COMSOL driver is missing, install the
-plugin package into the environment that provides `sim`. For this marketplace,
-use the global tool command above. In a normal uv project, use:
+如果 `sim check comsol` 报告 COMSOL driver 不存在，说明提供 `sim` 的 Python 环境
+里没有 `sim-plugin-comsol`。本 marketplace 使用上面的 `uv tool install ... --with`
+命令配置全局工具环境。普通 uv 项目则使用：
 
 ```powershell
 uv add sim-cli-core sim-plugin-comsol
 uv run sim plugin sync-skills --target .agents/skills --copy
 ```
 
-If `sim check comsol` reports the driver is present but no local COMSOL is
-found: the user does not have COMSOL Multiphysics installed. Don't try to
-solve. Offer to inspect a saved `.mph` archive instead (works without a
-live COMSOL — see "Saved `.mph` inspection" below).
+如果 plugin 存在但没有检测到本机 COMSOL，说明用户没有安装 COMSOL Multiphysics，
+或当前进程无法访问它。不要尝试 live solve；可以改用已保存 `.mph` 文件检查。
 
-## Control path - pick first
+## 控制路径选择
 
-| Path | Use for | Avoid for |
+| Path | 适合 | 避免用于 |
 |---|---|---|
-| `sim connect --solver comsol` (JPype, server-backed) | Building, solving, inspecting, saving `.mph`, repeatable case generation. Default. | Rarely. |
-| `sim connect --solver comsol --ui-mode gui --driver-option visual_mode=shared-desktop` | Same as above, **plus** the user wants to watch the Model Builder tree update live. | Headless / unattended runs. |
-| Saved `.mph` archive inspection (no JVM) | Offline summaries, "what's in this file?", diffs. | Mutating a model. |
-| Desktop attach (Java Shell, UIA) | Tiny edits inside an already-open ordinary COMSOL Desktop. Fragile. | Default routing. Long builds. Anything that needs structured exceptions. |
-| `comsolcompile` + `comsolbatch` | Sandboxed one-shot Java workflows. Used by benchmarks when sim CLI isn't available. | Anything stateful. Prefer sim runtime when available. |
+| `sim connect --solver comsol` | 默认路径。建模、求解、检查、保存 `.mph`、可复现 workflow。 | 极少需要避免。 |
+| `sim connect --solver comsol --ui-mode gui --driver-option visual_mode=shared-desktop` | 同上，并且用户想看 Model Builder tree 实时更新。 | Headless / unattended run。 |
+| Saved `.mph` inspection | 离线总结、查看文件里有什么、比较 `.mph`。 | 修改 live model。 |
+| Desktop attach / Java Shell | 只在用户明确要求对已打开的普通 COMSOL Desktop 做很小修改时作为脆弱回退。 | 默认自动化、长流程、需要结构化异常和验证的工作。 |
+| `comsolcompile` + `comsolbatch` | 沙盒 one-shot Java workflow。 | 有状态或交互式工作；能用 sim runtime 时优先用 sim runtime。 |
 
-## Required protocol - the model is a live engineering state
+## 必须遵守的工作协议
 
-Treat COMSOL as a stateful Java tree, not a code generator. Many `set(...)`
-calls mutate the model but downstream objects do not refresh until the
-relevant sequence is built or run. Use `run()` calls as **intentional
-synchronization points** when the next step depends on updated state, not
-mechanically after every line.
+把 COMSOL 当成一个有状态的 Java model tree，不要当成一次性代码生成器。很多
+`set(...)` 调用会改变 model，但下游对象要等相关 sequence build/run 后才刷新。
+需要下游状态时，把 `run()` 当作有意的同步点，而不是机械地每行之后都 run。
 
-1. **For saved-`.mph` questions** (parameters, physics tags, mesh size,
-   solved vs. unsolved): use offline `.mph` inspection. No `sim connect`
-   needed.
-2. **For live work**: choose a control path, then `sim check comsol`,
-   then `sim connect --solver comsol [--ui-mode gui ...]`.
-3. **Establish identity and workdir** before mutating: set a model tag
-   derived from the case name, save the `.mph` early to an absolute path,
-   keep files under `<workdir>/{model,input,output,scripts,logs}/`.
-4. **Inspect the baseline** with `sim inspect session.health` and
-   `sim inspect comsol.model.describe_text` before touching anything.
-5. **Execute ONE bounded modeling step** - geometry, then materials, then
-   physics, then mesh, then study, then results. Don't write a 200-line
-   monolithic builder.
-6. **Inspect after every step**: `sim inspect last.result` and
-   `sim inspect comsol.node.properties:<tag>`. Save a checkpoint `.mph`
-   after each major layer (`<case>_01_geometry.mph` etc.).
-7. **Continue only after the live model matches intent**.
+1. 如果用户只是问一个已保存 `.mph` 里有什么，优先用离线 `.mph` 检查，不需要
+   `sim connect`。
+2. live work 先选控制路径，再运行 `sim check comsol`，然后
+   `sim connect --solver comsol [--ui-mode gui ...]`。
+3. 修改 model 前，先建立身份和 workdir：根据 case name 设 model tag，尽早保存
+   `.mph` 到绝对路径，把文件放在 `<workdir>/{model,input,output,scripts,logs}/`。
+4. 动手前检查 baseline：`sim inspect session.health` 和
+   `sim inspect comsol.model.describe_text`。
+5. 一次只执行一个有边界的建模步骤：geometry、materials、physics、mesh、study、
+   results 分层推进。不要写 200 行 monolithic builder。
+6. 每一步后检查：`sim inspect last.result` 和
+   `sim inspect comsol.node.properties:<tag>`。每个 major layer 后保存 checkpoint
+   `.mph`，例如 `<case>_01_geometry.mph`。
+7. 只有 live model 和用户意图一致后才继续。
 
-## COMSOL-specific hard constraints
+## COMSOL 硬约束
 
-1. **Never call `mph.start()` or `client.create()` from a snippet.**
-   sim CLI already started a COMSOL JVM and bound a `model` handle.
-   A second `start()` spawns a conflicting JVM.
-2. **Image export is broken on Windows for the JPype path.** Prefer
-   `EvalGlobal` / `EvalPoint` / Numeric probes / exported CSV data over
-   `model.result().export()` PNGs.
-3. **Never hardcode property names before inspecting the live node.**
-   Use `sim inspect comsol.node.properties:<tag-or-dot-path>` first.
-4. **Don't run long monolithic builders.** Build one layer, inspect,
-   continue.
-5. **`comsolcompile` path**: Java MUST be **chain-style**
-   `model.X("tag").Y("tag2")...`. There is NO public `Component`,
-   `Geometry`, `HeatTransfer`, etc. type. Writing `Component c = ...`
-   produces `cannot be resolved to a type`.
+1. **不要在 snippet 里调用 `mph.start()` 或 `client.create()`。**
+   sim CLI 已经启动 COMSOL JVM 并绑定 `model` handle；第二次 start 会产生冲突。
+2. **Windows 上 JPype 路径的图片导出不可靠。** 优先使用 `EvalGlobal`、
+   `EvalPoint`、Numeric probe 或 CSV 数据导出，不要依赖
+   `model.result().export()` PNG。
+3. **设置属性前先检查 live node。** 优先用
+   `sim inspect comsol.node.properties:<tag-or-dot-path>`，不要猜 property name。
+4. **不要运行超长 monolithic builder。** 分层构建、检查、保存。
+5. `comsolcompile` 路径下，Java 代码必须使用 chain-style：
+   `model.X("tag").Y("tag2")...`。不存在公开的 `Component`、`Geometry`、
+   `HeatTransfer` 等类型；写 `Component c = ...` 会编译失败。
 
-## Saved `.mph` inspection (offline, no JVM)
+## 已保存 `.mph` 离线检查
 
-For "what's in this `.mph`?" questions, use the stdlib reader instead of
-spinning up COMSOL:
+对于“这个 `.mph` 文件里有什么？”这类问题，优先用 stdlib reader，不要启动 COMSOL：
 
 ```python
 from sim_plugin_comsol.lib import inspect_mph
-summary = inspect_mph("path/to/case.mph")   # dict of parameters, physics, mesh, solved status
+summary = inspect_mph("path/to/case.mph")
 ```
 
-`MphArchive` (context manager) and `mph_diff` (two-file delta) are also
-available. The `.mph` file is a ZIP archive; the global parameter
-`T="33"` convention identifies COMSOL 6.x format files. This works
-without a COMSOL license.
+`MphArchive` 和 `mph_diff` 也可用。这条路径不需要 COMSOL license。
 
-## Live introspection (during a sim session)
+## live session introspection
 
-After `sim connect --solver comsol`, the following inspect targets are
-the canonical ones. Do not guess; inspect first.
+`sim connect --solver comsol` 后，常用检查目标：
 
 ```powershell
-sim inspect session.health                       # ports, PIDs, ui_mode, model_builder_live
-sim inspect session.versions                     # active solver layer + SDK
-sim inspect last.result                          # most recent exec result + .mph probe
-sim inspect comsol.model.identity                # tag, file_path, checkpoint_ready
-sim inspect comsol.model.describe_text           # text dump of the model tree
-sim inspect comsol.node.properties:<dot-path>    # one node's properties before set()
+sim inspect session.health
+sim inspect session.versions
+sim inspect last.result
+sim inspect comsol.model.identity
+sim inspect comsol.model.describe_text
+sim inspect comsol.node.properties:<dot-path>
 ```
 
-Treat `checkpoint_ready: false`, missing `file_path`, or a bound tag
-that does not match `active_model_tag` as **pause-and-repair** state.
+如果 `checkpoint_ready: false`、缺少 `file_path`，或 bound tag 和
+`active_model_tag` 不一致，把它当成 pause-and-repair 状态，先修复 model 身份和
+checkpoint，再继续建模。
 
-## Shared-desktop GUI mode (user watches Model Builder)
+## shared-desktop GUI 模式
 
-When the user wants to see the Model Builder tree update live as the
-agent works:
+当用户想看 Model Builder tree 随 Agent 操作实时更新时：
 
 ```powershell
 sim connect --solver comsol --ui-mode gui --driver-option visual_mode=shared-desktop
 sim inspect session.health
 ```
 
-Confirm `effective_ui_mode: shared-desktop`,
-`ui_capabilities.model_builder_live: true`, and `active_model_tag` names
-the model your snippets will mutate. If `model_builder_live: false`, the
-Desktop and JPype are not in sync — fix that before continuing.
+确认 `effective_ui_mode: shared-desktop`、
+`ui_capabilities.model_builder_live: true`，并确认 `active_model_tag` 就是后续
+snippet 会修改的 model。如果 `model_builder_live: false`，Desktop 和 JPype 没有
+同步，先修复，不要继续假设 GUI 看到的是 agent 正在改的模型。
 
-Gotcha: launching `comsol.exe mphclient -host localhost -port <port>`
-DOES attach a full Desktop to `comsolmphserver`. However, if JPype calls
-`ModelUtil.create("SomeTag")`, the Desktop will not switch to that new tag -
-it stays on its active `Model1`. The shared-desktop mode therefore
-discovers / negotiates the active Desktop tag and routes agent edits to
-THAT tag.
+## attach-only external server
 
-## Attach-only external server (multi-session sharing)
-
-For repeated API client disconnects or "one COMSOL server survives
-multiple sim sessions":
+如果用户希望一个 COMSOL server 跨多个 sim session 存活，先在 Windows shell 中启动
+外部 server：
 
 ```powershell
-# User starts the server first in a Windows shell:
 comsolmphserver.exe -port 2036 -multi on -login auto -silent
+```
 
-# Then sim attaches in attach-only mode:
+然后用 sim attach：
+
+```powershell
 sim connect --solver comsol --ui-mode gui `
   --driver-option attach_only=true `
   --driver-option port=2036 `
   --driver-option visual_mode=shared-desktop
 ```
 
-In attach-only mode, `session.health` shows `server_owner: "external"`
-and `attach_only: true`. `sim disconnect` releases the JPype client and
-any plugin-launched Desktop, but does **not** kill the external
-`comsolmphserver`.
+attach-only 模式下，`session.health` 应显示 `server_owner: "external"` 和
+`attach_only: true`。`sim disconnect` 会释放 JPype client 和 plugin 启动的 Desktop，
+但不会杀掉外部 `comsolmphserver`。
 
-## Fragile fallback: Desktop attach (Java Shell)
+## 脆弱回退：Desktop attach / Java Shell
 
-Skip this section for normal COMSOL work. Use it only when the user
-explicitly wants a small edit in an already-open ordinary Desktop and
-refuses the server-backed `shared-desktop` path.
+正常 COMSOL 工作不要使用这条路径。只有用户明确要求在已经打开的普通 COMSOL
+Desktop 里做非常小的修改，并拒绝 server-backed `shared-desktop` 路径时才考虑。
 
 ```powershell
 uvx --from sim-plugin-comsol sim-comsol-attach open --json --timeout 120
@@ -179,86 +158,71 @@ uvx --from sim-plugin-comsol sim-comsol-attach health --json
 uvx --from sim-plugin-comsol sim-comsol-attach exec --file step.java --submit-key ctrl_enter --json
 ```
 
-Gotchas:
-- COMSOL 6.4 Desktop windows may be titled `Untitled.mph - COMSOL
-  Multiphysics`; target discovery must match substring, not prefix.
-- Use `--submit-key ctrl_enter`. Click-targeting the Run button can paste
-  code without reliably executing it.
-- Java Shell may not have a current `model` / `m` variable. Probe with a
-  tiny `System.out.println(...)` first.
-- File-system writes from Java Shell can be denied by COMSOL's Security
-  preference. Use in-model tables or have the user enable file access.
-- Avoid duplicate plot labels. COMSOL throws before later plot setup
-  lines run.
-- For result plots from table data, the Java feature type is `Table`
-  (under a `PlotGroup1D`), NOT `TableGraph`.
+注意：
 
-## COMSOL-specific dialogs
+- COMSOL 6.4 Desktop 标题可能是 `Untitled.mph - COMSOL Multiphysics`，窗口匹配要
+  用 substring，不要只匹配 prefix。
+- 使用 `--submit-key ctrl_enter`。点击 Run 按钮可能只粘贴代码，不一定执行。
+- Java Shell 里不一定有当前 `model` / `m` 变量，先用很小的
+  `System.out.println(...)` probe。
+- Java Shell 写文件可能被 COMSOL Security preference 拒绝；可用 in-model table，
+  或让用户显式允许文件访问。
+
+## 常见对话框
 
 - **"连接到 COMSOL Multiphysics Server"** / **"Connect to COMSOL
-  Multiphysics Server"** may be a stale or separate Desktop login
-  dialog. Does NOT prove the JPype server session failed. Verify with
-  `sim inspect session.health` first.
-- **"是否保存更改?"** / **"Save changes?"** appears on Desktop close
-  if a separately opened `.mph` has unsaved edits. Choose Save / Don't
-  Save according to user intent.
+  Multiphysics Server"** 可能只是 stale/separate Desktop login dialog，不证明
+  JPype server session 失败。先看 `sim inspect session.health`。
+- **"是否保存更改?"** / **"Save changes?"** 通常是单独打开的 `.mph` 有未保存修改。
+  按用户意图选择 Save 或 Don't Save。
 
-## Screenshot responsibility
+## 截图责任
 
-If you have access to the user's desktop (e.g. through WorkBuddy's own
-screen-capture capability), prefer that over `sim screenshot`; it sees
-exactly what the user sees. Use `sim screenshot` only when the solver GUI
-is on a remote host.
+如果 WorkBuddy / CodeBuddy 能看到用户桌面，优先用宿主自己的截图能力；它看到的就是
+用户看到的画面。只有 solver GUI 在远程机器上、本地 Agent 不能直接截图时，才使用
+`sim screenshot`。
 
-## Working folder convention
+## 工作目录约定
 
-```
+```text
 <workdir>/
-  model/<case_slug>.mph           ← the main model
-  model/<case_slug>_01_geometry.mph  ← checkpoint after geometry
+  model/<case_slug>.mph
+  model/<case_slug>_01_geometry.mph
   model/<case_slug>_02_materials.mph
   model/<case_slug>_03_solved.mph
-  input/                          ← user data / meshes / CAD imports
-  output/                         ← exported CSV / VTU / images
-  scripts/                        ← Python or Java snippets
-  logs/                           ← solver logs
+  input/
+  output/
+  scripts/
+  logs/
 ```
 
-Set `model.modelPath(...)` to `input/` and `model/` when the workflow
-uses external files. Prefer absolute paths for save / export / log
-targets. Do not rely on COMSOL's launch directory.
+涉及外部文件时，设置 `model.modelPath(...)` 指向相关 `input/` 和 `model/` 目录。
+保存、导出、log path 优先使用绝对路径。
 
-## When you're stuck
+## 卡住时
 
-1. `sim inspect session.health` first. Most "stuck" cases are
-   `model_builder_live: false`, a disconnected JPype, or a stale
-   Desktop dialog blocking the server.
-2. `sim inspect last.result` gives you the exception + workdir state
-   from the most recent `sim exec`.
-3. For Java compile errors in the `comsolcompile` path: it's almost
-   always typed-variable usage. Re-write as chain-style.
-4. For "image export failed on Windows": it is a known issue. Switch to
-   numeric probes + CSV export, then plot in matplotlib / pyvista from
-   the exported data.
+1. 先看 `sim inspect session.health`：常见问题是 `model_builder_live: false`、
+   JPype disconnected，或 stale Desktop dialog 阻塞 server。
+2. 再看 `sim inspect last.result`：这里有最近一次 `sim exec` 的异常和 workdir 状态。
+3. Java compile error 常见原因是用了不存在的 typed variable；改成 chain-style。
+4. Windows image export 失败时，改用 numeric probe + CSV export，再用 Python 画图。
 
 ## Reference
 
-Full plugin reference (deep API patterns, Java batch examples, MPH file
-format) ships with the `sim-plugin-comsol` Python package. In a uv project,
-sync installed skills into an agent-readable directory with:
+完整参考随 `sim-plugin-comsol` Python package 分发。普通 uv project 可先同步 skill：
 
 ```powershell
 uv run sim plugin sync-skills --target .agents/skills --copy
 ```
 
-The same reference content is maintained in the public plugin repository:
+公开源码里的参考文档：
 https://github.com/svd-ai-lab/sim-plugin-comsol/tree/main/src/sim_plugin_comsol/_skills/comsol/base/reference
 
-The four most useful files:
+常用文件：
 
-| File | When to read |
+| File | 何时阅读 |
 |---|---|
-| `runtime_introspection.md` | Building any new inspect target / interpreting an inspect result |
-| `java_api_patterns.md` | Writing live JPype snippets — tags, properties, selections |
-| `java_batch_patterns.md` | Writing `.java` for `comsolcompile` — chain-style rules, anti-patterns |
-| `mph_file_format.md` | `.mph` archive layout, `nodeType` variants, T-parameter contract |
+| `runtime_introspection.md` | 构建新的 inspect target 或解释 inspect result |
+| `java_api_patterns.md` | 写 live JPype snippet：tags、properties、selections |
+| `java_batch_patterns.md` | 写 `.java` 给 `comsolcompile`：chain-style 规则和反模式 |
+| `mph_file_format.md` | `.mph` archive 结构、`nodeType` 变体、T-parameter contract |
