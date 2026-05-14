@@ -7,8 +7,11 @@
 #   1. 如果本机没有 uv，安装 uv (Astral Python toolchain manager)。
 #   2. 安装带 COMSOL plugin 的全局 sim CLI 命令。
 #   3. clone / refresh sim-buddy 到 ~/.workbuddy/plugins/marketplaces/sim-buddy。
-#   4. 注册到 ~/.workbuddy/plugins/known_marketplaces.json (type=local)。
-#   5. 提示用户重启 WorkBuddy / CodeBuddy，让 marketplace 生效。
+#   4. junction plugins/sim-comsol/skill/ 到装好的 sim-plugin-comsol 包内的
+#      _skills/comsol/ 目录。SKILL.md 不再 vendor 在 sim-buddy 仓里，跟着
+#      driver release 走，避免 drift。
+#   5. 注册到 ~/.workbuddy/plugins/known_marketplaces.json (type=local)。
+#   6. 提示用户重启 WorkBuddy / CodeBuddy，让 marketplace 生效。
 #
 # 可以重复运行：脚本会处理已有 junction / 目录，并刷新 marketplace。
 
@@ -26,7 +29,7 @@ function Die($msg) { Write-Host "    FAIL: $msg" -ForegroundColor Red; exit 1 }
 function NativeOrDie($what) { if ($LASTEXITCODE -ne 0) { Die "$what (exit $LASTEXITCODE)" } }
 
 # ----- 1. uv ------------------------------------------------------------
-Step "1/4  uv (Astral)"
+Step "1/5  uv (Astral)"
 if (Get-Command uv -ErrorAction SilentlyContinue) {
     Ok ("uv 已在 PATH 上 (" + (& uv --version 2>&1 | Out-String).Trim() + ")")
 } else {
@@ -40,7 +43,7 @@ if (Get-Command uv -ErrorAction SilentlyContinue) {
 }
 
 # ----- 2. sim CLI + COMSOL plugin --------------------------------------
-Step "2/4  sim CLI + COMSOL plugin"
+Step "2/5  sim CLI + COMSOL plugin"
 Info "正在安装 / 更新带 sim-plugin-comsol 的 sim-cli-core..."
 & uv tool install sim-cli-core --with sim-plugin-comsol --upgrade --force *>&1 | Out-String | Write-Host
 NativeOrDie "uv tool install sim-cli-core --with sim-plugin-comsol"
@@ -67,7 +70,7 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 # ----- 3. clone sim-buddy into WorkBuddy marketplaces ------------------
-Step "3/4  sim-buddy marketplace"
+Step "3/5  sim-buddy marketplace"
 $mpDir = Join-Path $env:USERPROFILE ".workbuddy\plugins\marketplaces"
 if (-not (Test-Path $mpDir)) {
     throw "未找到 WorkBuddy marketplace 目录 ($mpDir)。请先安装 WorkBuddy: https://copilot.tencent.com/work/ ，启动一次后再重新运行本脚本。"
@@ -104,8 +107,40 @@ Info "git clone https://github.com/svd-ai-lab/sim-buddy.git --> $dst"
 NativeOrDie "git clone"
 Ok "已 clone"
 
-# ----- 4. register in known_marketplaces.json --------------------------
-Step "4/4  注册 marketplace 到 WorkBuddy"
+# ----- 4. junction SKILL bundle from sim-plugin-comsol -----------------
+# sim-buddy 故意不 vendor SKILL.md 拷贝。canonical bundle 在装好的
+# sim-plugin-comsol 包里；我们把 plugins/sim-comsol/skill/ junction 过去，
+# 让 skill 文本和 driver 代码永远 lockstep，不会 drift。
+Step "4/5  链接 SKILL bundle (从 sim-plugin-comsol 包)"
+$skillDst = Join-Path $dst "plugins\sim-comsol\skill"
+Info "解析 sim_plugin_comsol 安装路径 ..."
+$skillSrc = (& uv tool run --from sim-cli-core python -c "import sim_plugin_comsol,pathlib;p=pathlib.Path(sim_plugin_comsol.__file__).parent/'_skills'/'comsol';print(p)" 2>&1 | Out-String).Trim()
+if (-not $skillSrc -or -not (Test-Path $skillSrc)) {
+    Die "找不到 sim_plugin_comsol 自带的 SKILL bundle (got '$skillSrc')。sim-plugin-comsol 真的装上了吗？试试: uv tool install sim-cli-core --with sim-plugin-comsol --upgrade --force"
+}
+Info "skill source: $skillSrc"
+
+# 清理已有 junction / 目录
+if (Test-Path $skillDst) {
+    $skillItem = Get-Item $skillDst -Force
+    if ($skillItem.LinkType -eq "Junction" -or $skillItem.LinkType -eq "SymbolicLink") {
+        cmd /c rmdir "$skillDst" 2>&1 | Out-Null
+    } else {
+        Remove-Item $skillDst -Recurse -Force
+    }
+}
+
+Info "junction $skillDst -> $skillSrc"
+cmd /c mklink /J "$skillDst" "$skillSrc" 2>&1 | Out-String | Write-Host
+if ($LASTEXITCODE -ne 0) { Die "mklink /J 失败 (exit $LASTEXITCODE)" }
+# 校验目标里有我们要的 SKILL.zh-CN.md (确保上游 0.1.14+ 在 PATH 上)
+if (-not (Test-Path (Join-Path $skillDst "SKILL.zh-CN.md"))) {
+    Die "junction 完了，但 $skillDst\SKILL.zh-CN.md 不存在。装到的 sim-plugin-comsol 版本太老 (<0.1.14)？先跑: uv tool install sim-cli-core --with sim-plugin-comsol --upgrade --force"
+}
+Ok "skill bundle 已链接"
+
+# ----- 5. register in known_marketplaces.json --------------------------
+Step "5/5  注册 marketplace 到 WorkBuddy"
 $kmPath = Join-Path $env:USERPROFILE ".workbuddy\plugins\known_marketplaces.json"
 $existing = if (Test-Path $kmPath) {
     [System.IO.File]::ReadAllText($kmPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json

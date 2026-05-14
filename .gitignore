@@ -7,3 +7,7 @@ Thumbs.db
 __pycache__/
 .sim/
 node_modules/
+
+# Per-plugin skill bundles are junctions created by install.ps1, pointing at
+# the live sim-plugin-* package install. Single source of truth, not vendored.
+plugins/*/skill/

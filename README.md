@@ -57,9 +57,13 @@ The installer will:
    `uv tool install sim-cli-core --with sim-plugin-comsol --upgrade --force`
 3. Clone or refresh this marketplace under
    `~/.workbuddy/plugins/marketplaces/sim-buddy/`.
-4. Register the local marketplace in
+4. Junction `plugins/sim-comsol/skill/` at the installed
+   `sim_plugin_comsol/_skills/comsol/` bundle. SKILL.md ships with the
+   driver — sim-buddy is just the manifest shell, so skill and driver
+   can never drift.
+5. Register the local marketplace in
    `~/.workbuddy/plugins/known_marketplaces.json`.
-5. Ask you to restart WorkBuddy / CodeBuddy.
+6. Ask you to restart WorkBuddy / CodeBuddy.
 
 ## Try It
 

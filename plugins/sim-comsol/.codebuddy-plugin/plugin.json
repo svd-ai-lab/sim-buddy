@@ -12,6 +12,6 @@
   },
   "license": "Apache-2.0",
   "skills": [
-    "./SKILL.md"
+    "./skill/SKILL.zh-CN.md"
   ]
 }

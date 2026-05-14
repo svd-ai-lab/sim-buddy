@@ -56,8 +56,11 @@ irm https://raw.githubusercontent.com/svd-ai-lab/sim-buddy/main/install.ps1 | ie
    `uv tool install sim-cli-core --with sim-plugin-comsol --upgrade --force`
 3. clone 或刷新本 marketplace 到
    `~/.workbuddy/plugins/marketplaces/sim-buddy/`。
-4. 注册到 `~/.workbuddy/plugins/known_marketplaces.json`。
-5. 提示你重启 WorkBuddy / CodeBuddy。
+4. junction `plugins/sim-comsol/skill/` 到装好的
+   `sim_plugin_comsol/_skills/comsol/` bundle。SKILL.md 跟着 driver release 走，
+   sim-buddy 只是 manifest 壳，skill 和 driver 永远不会 drift。
+5. 注册到 `~/.workbuddy/plugins/known_marketplaces.json`。
+6. 提示你重启 WorkBuddy / CodeBuddy。
 
 ## 试用
 
