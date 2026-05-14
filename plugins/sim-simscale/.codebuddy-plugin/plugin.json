@@ -1,0 +1,17 @@
+{
+  "name": "sim-simscale",
+  "version": "0.1.0",
+  "description": "SimScale agent skill — 通过 sim CLI 调用 SimScale 云端 CAE 平台。需 SimScale API key。",
+  "author": {
+    "name": "SVD AI Lab",
+    "email": ""
+  },
+  "homepage": {
+    "url": "https://github.com/svd-ai-lab/sim-buddy",
+    "type": "github"
+  },
+  "license": "Apache-2.0",
+  "skills": [
+    "./skill/SKILL.md"
+  ]
+}

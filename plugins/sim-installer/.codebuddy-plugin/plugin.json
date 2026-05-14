@@ -1,0 +1,17 @@
+{
+  "name": "sim-installer",
+  "version": "0.1.0",
+  "description": "sim-buddy 扩展安装助手 — 当用户要用一个还没装的 sim plugin (Fluent / Mechanical / MATLAB / Abaqus / HFSS / Simscale / Workbench) 时,教 agent 用一句 PowerShell 自动装上并注册到 marketplace。",
+  "author": {
+    "name": "SVD AI Lab",
+    "email": ""
+  },
+  "homepage": {
+    "url": "https://github.com/svd-ai-lab/sim-buddy",
+    "type": "github"
+  },
+  "license": "Apache-2.0",
+  "skills": [
+    "./SKILL.zh-CN.md"
+  ]
+}

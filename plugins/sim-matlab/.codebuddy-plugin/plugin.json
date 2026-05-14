@@ -1,0 +1,17 @@
+{
+  "name": "sim-matlab",
+  "version": "0.1.0",
+  "description": "MATLAB / Simulink agent skill — 通过 sim CLI 驱动 MATLAB 引擎执行脚本、运行 .m 函数、读取 workspace 变量。需本机装 MATLAB。",
+  "author": {
+    "name": "SVD AI Lab",
+    "email": ""
+  },
+  "homepage": {
+    "url": "https://github.com/svd-ai-lab/sim-buddy",
+    "type": "github"
+  },
+  "license": "Apache-2.0",
+  "skills": [
+    "./skill/SKILL.md"
+  ]
+}

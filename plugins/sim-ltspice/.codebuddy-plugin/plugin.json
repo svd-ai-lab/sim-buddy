@@ -1,0 +1,17 @@
+{
+  "name": "sim-ltspice",
+  "version": "0.1.0",
+  "description": "LTspice agent skill — 通过 sim CLI 驱动 LTspice 电路仿真(瞬态/AC/DC/噪声)。ADI freeware,个人使用免费。",
+  "author": {
+    "name": "SVD AI Lab",
+    "email": ""
+  },
+  "homepage": {
+    "url": "https://github.com/svd-ai-lab/sim-buddy",
+    "type": "github"
+  },
+  "license": "Apache-2.0",
+  "skills": [
+    "./skill/SKILL.md"
+  ]
+}

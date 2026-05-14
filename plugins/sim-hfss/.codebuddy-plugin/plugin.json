@@ -1,0 +1,17 @@
+{
+  "name": "sim-hfss",
+  "version": "0.1.0",
+  "description": "Ansys HFSS agent skill — 通过 sim CLI 驱动 HFSS 高频电磁仿真。需本机装 Ansys AEDT。",
+  "author": {
+    "name": "SVD AI Lab",
+    "email": ""
+  },
+  "homepage": {
+    "url": "https://github.com/svd-ai-lab/sim-buddy",
+    "type": "github"
+  },
+  "license": "Apache-2.0",
+  "skills": [
+    "./skill/SKILL.md"
+  ]
+}

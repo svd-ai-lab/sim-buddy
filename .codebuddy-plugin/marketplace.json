@@ -1,12 +1,12 @@
 {
   "name": "sim-buddy",
-  "description": "sim-buddy — WorkBuddy / CodeBuddy 的本地仿真 marketplace，通过 sim CLI 驱动本机 CAE / CFD / FEA 工具。当前包含 COMSOL Multiphysics 支持。",
+  "description": "sim-buddy — WorkBuddy / CodeBuddy 的本地仿真 marketplace,通过 sim CLI 驱动本机 CAE / CFD / FEA 工具。默认 Tier 1(COMSOL + OpenFOAM + LTspice)即开即用;Tier 2(MATLAB + Ansys 套件 + Abaqus + SimScale)由 sim-installer 一句话扩展。",
   "owner": {
     "name": "SVD AI Lab",
     "email": ""
   },
   "metadata": {
-    "version": "0.1.1"
+    "version": "0.2.0"
   },
   "plugins": [
     {
@@ -15,14 +15,43 @@
       "source": "./plugins/sim-comsol",
       "version": "0.1.1",
       "category": "engineering",
-      "author": {
-        "name": "SVD AI Lab"
-      },
+      "author": { "name": "SVD AI Lab" },
       "homepage": "https://github.com/svd-ai-lab/sim-buddy",
       "license": "Apache-2.0",
-      "skills": [
-        "./plugins/sim-comsol"
-      ]
+      "skills": [ "./plugins/sim-comsol" ]
+    },
+    {
+      "name": "sim-openfoam",
+      "description": "OpenFOAM agent skill — 通过 sim CLI 驱动 OpenFOAM CFD 仿真(本地或远程 sim-server)。开源主流 CFD,免 license。",
+      "source": "./plugins/sim-openfoam",
+      "version": "0.1.0",
+      "category": "engineering",
+      "author": { "name": "SVD AI Lab" },
+      "homepage": "https://github.com/svd-ai-lab/sim-buddy",
+      "license": "Apache-2.0",
+      "skills": [ "./plugins/sim-openfoam" ]
+    },
+    {
+      "name": "sim-ltspice",
+      "description": "LTspice agent skill — 通过 sim CLI 驱动 LTspice 电路仿真(瞬态/AC/DC/噪声)。ADI freeware,个人使用免费。",
+      "source": "./plugins/sim-ltspice",
+      "version": "0.1.0",
+      "category": "engineering",
+      "author": { "name": "SVD AI Lab" },
+      "homepage": "https://github.com/svd-ai-lab/sim-buddy",
+      "license": "Apache-2.0",
+      "skills": [ "./plugins/sim-ltspice" ]
+    },
+    {
+      "name": "sim-installer",
+      "description": "sim-buddy 扩展安装助手 — 教 agent 用一句 PowerShell 装 Tier 2 solver (MATLAB / Abaqus / Fluent / HFSS / Mechanical / Simscale / Workbench)。",
+      "source": "./plugins/sim-installer",
+      "version": "0.1.0",
+      "category": "meta",
+      "author": { "name": "SVD AI Lab" },
+      "homepage": "https://github.com/svd-ai-lab/sim-buddy",
+      "license": "Apache-2.0",
+      "skills": [ "./plugins/sim-installer" ]
     }
   ]
 }

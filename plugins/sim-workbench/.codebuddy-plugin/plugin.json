@@ -1,0 +1,17 @@
+{
+  "name": "sim-workbench",
+  "version": "0.1.0",
+  "description": "Ansys Workbench agent skill — 通过 sim CLI 驱动 Workbench 项目级 CAE 流程。需本机装 Ansys Workbench。",
+  "author": {
+    "name": "SVD AI Lab",
+    "email": ""
+  },
+  "homepage": {
+    "url": "https://github.com/svd-ai-lab/sim-buddy",
+    "type": "github"
+  },
+  "license": "Apache-2.0",
+  "skills": [
+    "./skill/SKILL.md"
+  ]
+}

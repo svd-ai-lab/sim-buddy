@@ -1,0 +1,17 @@
+{
+  "name": "sim-fluent",
+  "version": "0.1.0",
+  "description": "Ansys Fluent agent skill — 通过 sim CLI 驱动 Fluent CFD 仿真。需本机装 Ansys + Fluent license。",
+  "author": {
+    "name": "SVD AI Lab",
+    "email": ""
+  },
+  "homepage": {
+    "url": "https://github.com/svd-ai-lab/sim-buddy",
+    "type": "github"
+  },
+  "license": "Apache-2.0",
+  "skills": [
+    "./skill/SKILL.md"
+  ]
+}

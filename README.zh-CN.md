@@ -3,16 +3,33 @@
 **用桌面 AI 助手驱动本地 CAE / CFD / FEA 仿真工具。**
 
 sim-buddy 是一个 WorkBuddy / CodeBuddy plugin marketplace。它让 AI Agent
-可以调用本地 [`sim` CLI](https://github.com/svd-ai-lab/sim-cli)，并在你的电脑
+可以调用本地 [`sim` CLI](https://github.com/svd-ai-lab/sim-cli),并在你的电脑
 上操作工程仿真软件。
 
-本仓库当前提供一个 marketplace plugin：
-
-| Plugin | Solver | 覆盖内容 |
-|---|---|---|
-| `sim-comsol` | COMSOL Multiphysics | 通过 sim CLI 使用 COMSOL live session、shared-desktop 协作、已保存 `.mph` 文件检查，以及 COMSOL 工作流指导 |
-
 English docs: [README.md](README.md)
+
+## 包含的 plugin
+
+**Tier 1 — 默认装上即开局:**
+
+| Plugin | Solver | License |
+|---|---|---|
+| `sim-comsol` | COMSOL Multiphysics | 商业(没装 COMSOL 也能离线 inspect `.mph` 文件) |
+| `sim-openfoam` | OpenFOAM | 开源 (GPL);本地或远程 sim-server 都行 |
+| `sim-ltspice` | LTspice | ADI freeware,个人使用免费 |
+| `sim-installer` | meta — 教 agent 怎么装更多 solver | — |
+
+**Tier 2 — 按需安装(让 agent 一句话搞定,或者自己跑下面那条命令):**
+
+| Plugin | Solver | 注意 |
+|---|---|---|
+| `sim-matlab` | MATLAB / Simulink | 需本机装 MATLAB(matlabengine 装包时 link MATLAB lib) |
+| `sim-abaqus` | Abaqus | 运行时需 Abaqus |
+| `sim-fluent` | Ansys Fluent | 拉 `ansys-fluent-core`(~100MB);运行需 Ansys + Fluent |
+| `sim-hfss` | Ansys HFSS | 拉 `pyaedt`(~100MB);运行需 Ansys AEDT |
+| `sim-mechanical` | Ansys Mechanical | 拉 `ansys-mechanical-core`;运行需 Mechanical |
+| `sim-simscale` | SimScale 云端 CAE | 需 SimScale API key,不需要本机 CAE 软件 |
+| `sim-workbench` | Ansys Workbench | 拉 `ansys-workbench-core`;运行需 Workbench |
 
 ## 工作方式
 
@@ -23,25 +40,25 @@ English docs: [README.md](README.md)
 WorkBuddy / CodeBuddy 加载 sim-buddy marketplace
     |
     v
-sim-comsol skill 调用本地 sim CLI
+匹配 solver 的 plugin SKILL 调用本地 sim CLI
     |
     v
-sim CLI 加载已安装的 COMSOL driver plugin
+sim CLI 加载对应 driver (sim-plugin-<solver>)
     |
     v
-COMSOL Multiphysics 在本机运行并返回结果文件
+仿真器在本机运行并返回结果
 ```
 
 ## 安装
 
-前提条件：
+前提条件:
 
 - Windows 10/11
-- 已安装 [WorkBuddy](https://copilot.tencent.com/work/) 或兼容的 CodeBuddy marketplace host，并至少启动过一次
+- 已安装 [WorkBuddy](https://copilot.tencent.com/work/) 或兼容的 CodeBuddy
+  marketplace host,并至少启动过一次
 - Git for Windows
-- 如果要实时求解或修改 COMSOL 模型，需要本机安装并授权 COMSOL Multiphysics
 
-在 WorkBuddy / CodeBuddy 聊天框里，让助手运行这个 PowerShell 命令：
+在 WorkBuddy / CodeBuddy 聊天框里,让助手运行这个 PowerShell:
 
 ```powershell
 irm https://raw.githubusercontent.com/svd-ai-lab/sim-buddy/main/install.ps1 | iex
@@ -49,71 +66,77 @@ irm https://raw.githubusercontent.com/svd-ai-lab/sim-buddy/main/install.ps1 | ie
 
 你也可以直接在 PowerShell 中运行同一条命令。
 
-安装脚本会：
+安装脚本会:
 
-1. 如果 `PATH` 上没有 `uv`，先安装 `uv`。
-2. 安装带 COMSOL plugin 支持的全局 `sim` 命令：
-   `uv tool install sim-cli-core --with sim-plugin-comsol --upgrade --force`
-3. clone 或刷新本 marketplace 到
+1. 如果 `PATH` 上没有 `uv`,先安装 `uv`。
+2. 装全局 `sim` 命令 + 全部 Tier 1 plugin
+   (`uv tool install sim-cli-core --with sim-plugin-comsol --with sim-plugin-openfoam --with sim-plugin-ltspice --upgrade --force`)。
+3. clone / refresh 本 marketplace 到
    `~/.workbuddy/plugins/marketplaces/sim-buddy/`。
-4. junction `plugins/sim-comsol/skill/` 到装好的
-   `sim_plugin_comsol/_skills/comsol/` bundle。SKILL.md 跟着 driver release 走，
-   sim-buddy 只是 manifest 壳，skill 和 driver 永远不会 drift。
-5. 注册到 `~/.workbuddy/plugins/known_marketplaces.json`。
-6. 提示你重启 WorkBuddy / CodeBuddy。
+4. 对每个装上的 `sim-plugin-<X>`,junction `plugins/sim-<X>/skill/` 到包内的
+   `_skills/<X>/`。SKILL.md 跟着 driver release 走,sim-buddy 只是 manifest
+   壳,skill 和 driver 永远不会 drift。Tier 2 plugin 会自动追加到 marketplace.json。
+5. 注册到 `~/.workbuddy/plugins/known_marketplaces.json` 并提示重启 WorkBuddy。
+
+## 加装 Tier 2 solver
+
+可以让 agent 一句话搞定("装个 Fluent plugin"),或者自己跑:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/svd-ai-lab/sim-buddy/main/install.ps1))) -AddSolvers fluent
+```
+
+一次装多个:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/svd-ai-lab/sim-buddy/main/install.ps1))) -AddSolvers fluent,mechanical,matlab
+```
+
+install.ps1 通过 `uv tool list` 反推之前装了什么 —— 不维护 state file,重跑就
+保留状态。Tier 2 装包失败(如本机没 MATLAB → sim-plugin-matlab 装不上)会软
+fail,Tier 1 依然能用。
 
 ## 试用
 
-安装后，重启 WorkBuddy / CodeBuddy，然后可以说：
+装完重启 WorkBuddy / CodeBuddy,可以说:
 
-> Inspect this `.mph` file and summarize its physics, parameters, studies, and
-> mesh state.
+> 帮我看看这个 .mph 文件用了什么物理场、参数和 mesh 设置
 
-如果本机已安装并授权 COMSOL，也可以说：
+> 用 OpenFOAM 跑稳态 cavity 教程,报一下 residuals
 
-> Use COMSOL to solve `block.mph` for steady-state temperature under 100 W of
-> heating, then report the result files.
+> 这个 LTspice 原理图扫 R1 从 1k 到 100k,画输出
 
-Agent 会加载 `sim-comsol`，检查本地 `sim` 环境，并使用类似命令：
+Agent 会加载对应 plugin 的 SKILL,检查本地 sim 环境,跑类似命令:
 
 ```powershell
 sim --version
 sim plugin list
-sim plugin info comsol
-sim plugin doctor comsol
-sim check comsol
-sim connect --solver comsol
+sim plugin doctor <solver>
+sim check <solver>
+sim connect --solver <solver>
 ```
 
-## 其他 Solver Plugin
+## 其他 Solver Plugin(还在路上)
 
-sim-cli 的 solver plugin 是普通 Python package。本 marketplace 当前只打包
-COMSOL 的 WorkBuddy / CodeBuddy skill。
-
-当前公开 plugin 列表和安装 package spec 请查看
-[sim-plugin-index](https://github.com/svd-ai-lab/sim-plugin-index)。在普通
-agent project 中，用 `uv` 安装 solver package，例如：
-
-```powershell
-uv add sim-cli-core sim-plugin-comsol
-uv run sim plugin sync-skills --target .agents/skills --copy
-uv run sim check comsol
-```
+sim-cli 在 [svd-ai-lab](https://github.com/svd-ai-lab) 下有 ~50 个 solver
+plugin repo,目前 10 个发到 PyPI(就是上面表里那 10 个)。其他的(CalculiX、
+SU2、Elmer、gmsh、LS-DYNA、MAPDL 等)还在 PyPI 队列中,跟踪
+[sim-plugin-index](https://github.com/svd-ai-lab/sim-plugin-index) 看进度。
 
 ## 排查问题
 
-如果助手找不到 `sim`，可以重新运行安装脚本，或直接运行：
+如果助手找不到 `sim`,可以重新运行安装脚本,或直接运行:
 
 ```powershell
-uv tool install sim-cli-core --with sim-plugin-comsol --upgrade --force
+uv tool install sim-cli-core --with sim-plugin-comsol --with sim-plugin-openfoam --with sim-plugin-ltspice --upgrade --force
 ```
 
-如果没有检测到 COMSOL，plugin 仍然可以检查已保存的 `.mph` 文件，但实时求解需要
-本机 COMSOL 安装和 license：
+如果某个 solver 没被检测到,plugin 仍可能离线工作(比如 COMSOL `.mph`
+inspection);live solve 需要本机软件:
 
 ```powershell
-sim check comsol
-sim plugin doctor comsol
+sim check <solver>
+sim plugin doctor <solver>
 ```
 
 ## License

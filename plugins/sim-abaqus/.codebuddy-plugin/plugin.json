@@ -1,0 +1,17 @@
+{
+  "name": "sim-abaqus",
+  "version": "0.1.0",
+  "description": "Abaqus agent skill — 通过 sim CLI 驱动 Abaqus FEA(结构、热、显式动力学)。需本机装 Abaqus。",
+  "author": {
+    "name": "SVD AI Lab",
+    "email": ""
+  },
+  "homepage": {
+    "url": "https://github.com/svd-ai-lab/sim-buddy",
+    "type": "github"
+  },
+  "license": "Apache-2.0",
+  "skills": [
+    "./skill/SKILL.md"
+  ]
+}
