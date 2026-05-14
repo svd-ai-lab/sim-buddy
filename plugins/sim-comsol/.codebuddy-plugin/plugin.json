@@ -1,7 +1,7 @@
 {
   "name": "sim-comsol",
-  "version": "0.1.0",
-  "description": "COMSOL Multiphysics agent skill — 通过 sim CLI 驱动 COMSOL 建模 / 求解 / 检查。",
+  "version": "0.1.1",
+  "description": "COMSOL Multiphysics agent skill for building, solving, inspecting, and reviewing COMSOL models through the sim CLI.",
   "author": {
     "name": "SVD AI Lab",
     "email": ""

@@ -1,22 +1,22 @@
-# sim-buddy one-shot installer for WorkBuddy on Windows.
+# sim-buddy one-shot installer for WorkBuddy / CodeBuddy on Windows.
 #
-# Usage from WorkBuddy chat (or any PowerShell):
+# Usage from WorkBuddy / CodeBuddy chat, or any PowerShell:
 #   irm https://raw.githubusercontent.com/svd-ai-lab/sim-buddy/main/install.ps1 | iex
 #
 # What it does:
 #   1. Installs uv (Astral Python toolchain manager) if not present.
-#   2. Installs sim CLI core + the COMSOL driver as uv tools.
+#   2. Installs the global sim CLI command with the COMSOL plugin available.
 #   3. Clones / refreshes sim-buddy into ~/.workbuddy/plugins/marketplaces/sim-buddy.
 #   4. Registers the marketplace in ~/.workbuddy/plugins/known_marketplaces.json (type=local).
-#   5. Asks the user to restart WorkBuddy so the new marketplace is picked up.
+#   5. Asks the user to restart WorkBuddy / CodeBuddy so the marketplace is picked up.
 #
 # Safe to re-run: detects existing junctions / directories and refreshes them
 # without touching the upstream source.
 
-# Note: do NOT use $ErrorActionPreference = "Stop" globally.
+# Do not use $ErrorActionPreference = "Stop" globally.
 # PowerShell 5.1 treats every stderr line from native commands (uv, sim, git)
 # as a terminating error under Stop, which kills the script mid-flight.
-# Instead, check $LASTEXITCODE after each native call.
+# Instead, check $LASTEXITCODE after each native command.
 $ErrorActionPreference = "Continue"
 
 function Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
@@ -35,35 +35,36 @@ if (Get-Command uv -ErrorAction SilentlyContinue) {
     irm https://astral.sh/uv/install.ps1 | iex
     $env:PATH = "$env:USERPROFILE\.local\bin;$env:PATH"
     if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
-        Die "uv installer ran but uv not found on PATH. Open a NEW PowerShell window and re-run this script."
+        Die "uv installer ran but uv was not found on PATH. Open a new PowerShell window and re-run this script."
     }
     Ok ("uv installed: " + (& uv --version 2>&1 | Out-String).Trim())
 }
 
-# ----- 2. sim CLI + COMSOL driver --------------------------------------
-Step "2/4  sim CLI + COMSOL driver"
-if (Get-Command sim -ErrorAction SilentlyContinue) {
-    Ok ("sim already on PATH (" + (& sim --version 2>&1 | Out-String).Trim() + ")")
-} else {
-    Info "uv tool install sim-cli-core ..."
-    & uv tool install sim-cli-core *>&1 | Out-String | Write-Host
-    NativeOrDie "uv tool install sim-cli-core"
-    $env:PATH = "$env:USERPROFILE\.local\bin;$env:PATH"
-    Ok "sim CLI installed"
-}
+# ----- 2. sim CLI + COMSOL plugin --------------------------------------
+Step "2/4  sim CLI + COMSOL plugin"
+Info "installing/updating sim-cli-core with sim-plugin-comsol..."
+& uv tool install sim-cli-core --with sim-plugin-comsol --upgrade --force *>&1 | Out-String | Write-Host
+NativeOrDie "uv tool install sim-cli-core --with sim-plugin-comsol"
+$env:PATH = "$env:USERPROFILE\.local\bin;$env:PATH"
 
-Info "sim plugin install sim-plugin-comsol ..."
-& sim plugin install sim-plugin-comsol *>&1 | Out-String | Write-Host
-# Don't die on plugin install failure -- driver may already be installed,
-# user can re-install manually if needed.
-if ($LASTEXITCODE -ne 0) { Warn "sim plugin install returned $LASTEXITCODE (often benign if already installed)" }
+Info "checking sim CLI ..."
+& sim --version *>&1 | Out-String | Write-Host
+NativeOrDie "sim --version"
+
+Info "checking registered sim plugins ..."
+& sim plugin list *>&1 | Out-String | Write-Host
+NativeOrDie "sim plugin list"
+
+Info "checking COMSOL plugin wiring ..."
+& sim plugin doctor comsol *>&1 | Out-String | Write-Host
+NativeOrDie "sim plugin doctor comsol"
 
 Info "checking COMSOL detection ..."
 & sim check comsol *>&1 | Out-Null
 if ($LASTEXITCODE -eq 0) {
-    Ok "sim check comsol passed (COMSOL install detected)"
+    Ok "sim check comsol passed (COMSOL installation detected)"
 } else {
-    Warn "sim check comsol returned $LASTEXITCODE -- driver is installed, but COMSOL Multiphysics itself may be missing. Offline .mph inspection still works."
+    Warn "sim check comsol returned $LASTEXITCODE. The plugin is installed, but COMSOL Multiphysics itself may be missing or unavailable. Saved .mph inspection can still be useful."
 }
 
 # ----- 3. clone sim-buddy into WorkBuddy marketplaces ------------------
@@ -78,12 +79,12 @@ $dst = Join-Path $mpDir "sim-buddy"
 # Stop WorkBuddy so the marketplace can be replaced cleanly.
 $wb = Get-Process -Name "WorkBuddy" -ErrorAction SilentlyContinue
 if ($wb) {
-    Info "stopping WorkBuddy (will restart after install)..."
+    Info "stopping WorkBuddy so the marketplace can be refreshed..."
     $wb | Stop-Process -Force
     Start-Sleep -Seconds 2
 }
 
-# Remove existing install -- be careful with junctions, do not follow them.
+# Remove an existing install. Be careful with junctions and do not follow them.
 if (Test-Path $dst) {
     $item = Get-Item $dst -Force
     if ($item.LinkType -eq "Junction" -or $item.LinkType -eq "SymbolicLink") {
@@ -143,14 +144,14 @@ Write-Host " sim-buddy installed." -ForegroundColor Green
 Write-Host "==================================================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Next:"
-Write-Host "  1. Start WorkBuddy:    & 'E:\Program Files\WorkBuddy\WorkBuddy.exe'  (or from Start Menu)"
-Write-Host "  2. In the chat, try:   '我有一个 .mph 文件,你帮我看看里面用了什么物理场'"
-Write-Host "     WorkBuddy will load the sim-comsol skill and shell out to sim CLI."
+Write-Host "  1. Start WorkBuddy from the Start Menu."
+Write-Host "  2. In chat, try: 'Inspect this .mph file and summarize its physics and parameters.'"
+Write-Host "     WorkBuddy / CodeBuddy will load the sim-comsol skill and call sim CLI."
 Write-Host ""
 Write-Host "Re-run this script any time to refresh sim-buddy from GitHub."
 Write-Host ""
 
-# Force exit 0 even if upstream native commands (uv, sim, git) wrote benign
-# progress to stderr -- PS 5.1 would otherwise propagate a non-zero exit code
-# to "irm | iex" callers and confuse them.
+# Force exit 0 even if upstream native commands wrote benign progress to
+# stderr. PowerShell 5.1 can otherwise propagate a non-zero exit code to
+# "irm | iex" callers and confuse them.
 exit 0

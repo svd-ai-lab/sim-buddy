@@ -1,31 +1,62 @@
 # sim-comsol
 
-WorkBuddy / CodeBuddy plugin: 用自然语言驱动 **COMSOL Multiphysics**。
-底层调用 [`sim` CLI](https://github.com/svd-ai-lab/sim-cli) 通过 JPype
-Java API 跑 COMSOL,支持 shared-desktop GUI 协作 / 离线 `.mph` 检查 /
-Desktop attach 回退三条路径。
+`sim-comsol` is the WorkBuddy / CodeBuddy skill in this marketplace for
+COMSOL Multiphysics workflows through the
+[`sim` CLI](https://github.com/svd-ai-lab/sim-cli).
 
-## 装上之后
+It helps an agent choose and use the right COMSOL control path:
 
-WorkBuddy 自己会读 `SKILL.md` 知道在什么时候调这个 skill。你直接说:
+- live COMSOL sessions through `sim connect --solver comsol`
+- shared-desktop collaboration when the engineer wants to watch the model tree
+- saved `.mph` inspection without launching COMSOL
+- small legacy desktop-attach fallback guidance when explicitly needed
 
-> "把 `block.mph` 算一下 100 W 加热下的稳态温度,出一张温度云图"
+## After Installation
 
-或者:
+WorkBuddy / CodeBuddy reads [`SKILL.md`](./SKILL.md) and invokes this plugin
+when the task is about COMSOL. You can ask:
 
-> "我有一个 .mph 文件,你帮我看看里面用了什么物理场和参数"
+> Inspect this `.mph` file and summarize its physics, parameters, studies, and
+> mesh state.
 
-WorkBuddy 会自己 shell 出 `sim --version` → `sim check comsol` →
-`sim connect --solver comsol` → 一步步建模 / 求解 / 检查。
+Or, if COMSOL is installed and licensed:
 
-## 前置条件
+> Use COMSOL to solve `block.mph` for steady-state temperature under 100 W of
+> heating, then report the result files.
+
+The agent should verify the local runtime with:
 
 ```powershell
-pip install sim-cli-core             # 必装
-sim plugin install comsol            # 装 COMSOL driver
-# 然后系统里要有 COMSOL Multiphysics (商业 license)
+sim --version
+sim plugin list
+sim plugin info comsol
+sim plugin doctor comsol
+sim check comsol
 ```
 
-## 详细技能内容
+## Runtime Setup
 
-见同级 [`SKILL.md`](./SKILL.md) — WorkBuddy 加载这个 skill 时自动读全文。
+The top-level sim-buddy installer configures a global `sim` command with the
+COMSOL plugin:
+
+```powershell
+uv tool install sim-cli-core --with sim-plugin-comsol --upgrade --force
+```
+
+For ordinary agent projects outside this marketplace, use a project
+environment instead:
+
+```powershell
+uv add sim-cli-core sim-plugin-comsol
+uv run sim plugin sync-skills --target .agents/skills --copy
+uv run sim check comsol
+```
+
+COMSOL Multiphysics itself is not bundled. Live solving requires a local COMSOL
+installation and license. Saved `.mph` inspection can still be useful without a
+live COMSOL session.
+
+## Skill Details
+
+See [`SKILL.md`](./SKILL.md). WorkBuddy / CodeBuddy loads that file as the
+agent-facing COMSOL workflow guide.

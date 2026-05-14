@@ -1,6 +1,6 @@
 ---
 name: sim-comsol
-description: Use when the user asks for COMSOL Multiphysics work — building, debugging, solving, or inspecting `.mph` models through the `sim` CLI's COMSOL driver. Covers JPype Java API sessions, shared-desktop GUI collaboration, offline `.mph` introspection, and a fragile Desktop attach fallback. Always prefer `sim connect --solver comsol` over raw COMSOL APIs.
+description: Use when the user asks for COMSOL Multiphysics work - building, debugging, solving, or inspecting `.mph` models through the `sim` CLI's COMSOL driver. Covers JPype Java API sessions, shared-desktop GUI collaboration, offline `.mph` introspection, and a fragile Desktop attach fallback. Always prefer `sim connect --solver comsol` over raw COMSOL APIs.
 ---
 
 # COMSOL via sim CLI (WorkBuddy plugin)
@@ -18,18 +18,28 @@ sim --version              # confirms sim CLI is on PATH
 sim check comsol           # confirms COMSOL driver is registered AND a local COMSOL install is detected
 ```
 
-If `sim --version` fails: tell the user to run `pip install sim-cli-core`
-(or `uv tool install sim-cli-core`) and re-open the prompt.
+If `sim --version` fails: tell the user to run the sim-buddy installer again,
+or run:
 
-If `sim check comsol` reports the driver is missing: run
-`sim plugin install comsol` (this is the `sim-plugin-comsol` PyPI package).
+```powershell
+uv tool install sim-cli-core --with sim-plugin-comsol --upgrade --force
+```
+
+If `sim check comsol` reports that the COMSOL driver is missing, install the
+plugin package into the environment that provides `sim`. For this marketplace,
+use the global tool command above. In a normal uv project, use:
+
+```powershell
+uv add sim-cli-core sim-plugin-comsol
+uv run sim plugin sync-skills --target .agents/skills --copy
+```
 
 If `sim check comsol` reports the driver is present but no local COMSOL is
 found: the user does not have COMSOL Multiphysics installed. Don't try to
 solve. Offer to inspect a saved `.mph` archive instead (works without a
 live COMSOL — see "Saved `.mph` inspection" below).
 
-## Control path — pick first
+## Control path - pick first
 
 | Path | Use for | Avoid for |
 |---|---|---|
@@ -39,12 +49,12 @@ live COMSOL — see "Saved `.mph` inspection" below).
 | Desktop attach (Java Shell, UIA) | Tiny edits inside an already-open ordinary COMSOL Desktop. Fragile. | Default routing. Long builds. Anything that needs structured exceptions. |
 | `comsolcompile` + `comsolbatch` | Sandboxed one-shot Java workflows. Used by benchmarks when sim CLI isn't available. | Anything stateful. Prefer sim runtime when available. |
 
-## Required protocol — the model is a live engineering state
+## Required protocol - the model is a live engineering state
 
 Treat COMSOL as a stateful Java tree, not a code generator. Many `set(...)`
-calls mutate the model but downstream objects don't refresh until the
+calls mutate the model but downstream objects do not refresh until the
 relevant sequence is built or run. Use `run()` calls as **intentional
-synchronization points** when the next step depends on updated state — not
+synchronization points** when the next step depends on updated state, not
 mechanically after every line.
 
 1. **For saved-`.mph` questions** (parameters, physics tags, mesh size,
@@ -57,7 +67,7 @@ mechanically after every line.
    keep files under `<workdir>/{model,input,output,scripts,logs}/`.
 4. **Inspect the baseline** with `sim inspect session.health` and
    `sim inspect comsol.model.describe_text` before touching anything.
-5. **Execute ONE bounded modeling step** — geometry, then materials, then
+5. **Execute ONE bounded modeling step** - geometry, then materials, then
    physics, then mesh, then study, then results. Don't write a 200-line
    monolithic builder.
 6. **Inspect after every step**: `sim inspect last.result` and
@@ -100,7 +110,7 @@ without a COMSOL license.
 ## Live introspection (during a sim session)
 
 After `sim connect --solver comsol`, the following inspect targets are
-the canonical ones. Don't guess — inspect first.
+the canonical ones. Do not guess; inspect first.
 
 ```powershell
 sim inspect session.health                       # ports, PIDs, ui_mode, model_builder_live
@@ -131,7 +141,7 @@ Desktop and JPype are not in sync — fix that before continuing.
 
 Gotcha: launching `comsol.exe mphclient -host localhost -port <port>`
 DOES attach a full Desktop to `comsolmphserver`. However, if JPype calls
-`ModelUtil.create("SomeTag")`, the Desktop won't switch to that new tag —
+`ModelUtil.create("SomeTag")`, the Desktop will not switch to that new tag -
 it stays on its active `Model1`. The shared-desktop mode therefore
 discovers / negotiates the active Desktop tag and routes agent edits to
 THAT tag.
@@ -178,7 +188,7 @@ Gotchas:
   tiny `System.out.println(...)` first.
 - File-system writes from Java Shell can be denied by COMSOL's Security
   preference. Use in-model tables or have the user enable file access.
-- Avoid duplicate plot labels — COMSOL throws before later plot setup
+- Avoid duplicate plot labels. COMSOL throws before later plot setup
   lines run.
 - For result plots from table data, the Java feature type is `Table`
   (under a `PlotGroup1D`), NOT `TableGraph`.
@@ -186,17 +196,17 @@ Gotchas:
 ## COMSOL-specific dialogs
 
 - **"连接到 COMSOL Multiphysics Server"** / **"Connect to COMSOL
-  Multiphysics Server"** — may be a stale or separate Desktop login
+  Multiphysics Server"** may be a stale or separate Desktop login
   dialog. Does NOT prove the JPype server session failed. Verify with
   `sim inspect session.health` first.
-- **"是否保存更改?"** / **"Save changes?"** — appears on Desktop close
+- **"是否保存更改?"** / **"Save changes?"** appears on Desktop close
   if a separately opened `.mph` has unsaved edits. Choose Save / Don't
   Save according to user intent.
 
 ## Screenshot responsibility
 
 If you have access to the user's desktop (e.g. through WorkBuddy's own
-screen-capture capability), prefer that over `sim screenshot` — it sees
+screen-capture capability), prefer that over `sim screenshot`; it sees
 exactly what the user sees. Use `sim screenshot` only when the solver GUI
 is on a remote host.
 
@@ -216,30 +226,33 @@ is on a remote host.
 
 Set `model.modelPath(...)` to `input/` and `model/` when the workflow
 uses external files. Prefer absolute paths for save / export / log
-targets — don't rely on COMSOL's launch directory.
+targets. Do not rely on COMSOL's launch directory.
 
 ## When you're stuck
 
-1. `sim inspect session.health` first — most "stuck" cases are
+1. `sim inspect session.health` first. Most "stuck" cases are
    `model_builder_live: false`, a disconnected JPype, or a stale
    Desktop dialog blocking the server.
-2. `sim inspect last.result` — gives you the exception + workdir state
+2. `sim inspect last.result` gives you the exception + workdir state
    from the most recent `sim exec`.
 3. For Java compile errors in the `comsolcompile` path: it's almost
    always typed-variable usage. Re-write as chain-style.
-4. For "image export failed on Windows": it's a known issue — switch to
+4. For "image export failed on Windows": it is a known issue. Switch to
    numeric probes + CSV export, then plot in matplotlib / pyvista from
    the exported data.
 
 ## Reference
 
 Full plugin reference (deep API patterns, Java batch examples, MPH file
-format) ships with the `sim-plugin-comsol` Python package. After
-`sim plugin install comsol`, the reference docs are at:
+format) ships with the `sim-plugin-comsol` Python package. In a uv project,
+sync installed skills into an agent-readable directory with:
 
+```powershell
+uv run sim plugin sync-skills --target .agents/skills --copy
 ```
-<sim plugin install prefix>/sim_plugin_comsol/_skills/comsol/base/reference/
-```
+
+The same reference content is maintained in the public plugin repository:
+https://github.com/svd-ai-lab/sim-plugin-comsol/tree/main/src/sim_plugin_comsol/_skills/comsol/base/reference
 
 The four most useful files:
 
