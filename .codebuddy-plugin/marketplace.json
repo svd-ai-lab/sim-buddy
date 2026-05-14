@@ -1,19 +1,19 @@
 {
   "name": "sim-buddy",
-  "description": "sim-buddy — 用自然语言驱动本地 CAE / CFD / FEA 仿真。每个仿真器一个独立 plugin (COMSOL / OpenFOAM / Fluent / Mechanical / LTspice 等),底层统一调用 sim CLI runtime。",
+  "description": "sim-buddy — WorkBuddy / CodeBuddy 的本地仿真 marketplace，通过 sim CLI 驱动本机 CAE / CFD / FEA 工具。当前包含 COMSOL Multiphysics 支持。",
   "owner": {
     "name": "SVD AI Lab",
     "email": ""
   },
   "metadata": {
-    "version": "0.1.0"
+    "version": "0.1.1"
   },
   "plugins": [
     {
       "name": "sim-comsol",
-      "description": "COMSOL Multiphysics agent skill — 通过 sim CLI 的 JPype Java API 驱动 COMSOL 进行建模、求解、检查。支持 shared-desktop GUI 协作模式、离线 .mph 文件检查、Desktop attach 回退。",
+      "description": "COMSOL Multiphysics agent skill — 通过 sim CLI 构建、求解、检查和审阅 COMSOL 模型。",
       "source": "./plugins/sim-comsol",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "engineering",
       "author": {
         "name": "SVD AI Lab"
